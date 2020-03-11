@@ -62,9 +62,9 @@ def game_completed(board, player_num):
 def terminal_state(board):
     """ Check who won the game and return the utility """
     if game_completed(board, player_num=1):
-        return 10000
+        return 100000
     elif game_completed(board, player_num=2):
-        return -10000
+        return -100000
     else:
         return None
 
@@ -116,7 +116,7 @@ class AIPlayer:
             return 0
 
         if depth == 0:
-            return self.evaluation_function(state)
+            return -self.evaluation_function(state)
 
         v = +float('inf')
         for a in avail_actions:
@@ -127,6 +127,7 @@ class AIPlayer:
             beta = min(beta, v)
         return v
 
+    
     def get_alpha_beta_move(self, board):
         """
         Given the current state of the board, return the next move based on
@@ -165,7 +166,7 @@ class AIPlayer:
             d = 1
         '''Calculate action values using depth-limited heuristic-based minimax algorithm'''
         _, action_values = self.max_value(board, alpha=-float('inf'), beta=float('inf'), depth=d)
-
+        print(action_values)
         '''Select best action from available actions based on action values returned from minimax'''
         best_action = avail_actions[0]
         best_value = -float('inf')
@@ -287,14 +288,14 @@ class AIPlayer:
         """kernel_score rewards all vertical, horizontal, and diagonal winning situations"""
         r_score = self.kernel_score(board)
         c_score = self.kernel_score(board.T)
-        return int((r_score + c_score) / 2)
+        return r_score + c_score
 
     def kernel_score(self, board):
         """creating kernels that consider all vertical, horizontal, and diagonal win situations"""
         """adding zeros in between rewards the diagonal winning situations"""
-        max_kernels = ['{0}{0}'.format(1), '{0}0{0}'.format(1),  '{0}{0}{0}'.format(1), '{0}{0}0{0}'.format(1), '{0}0{0}{0}'.format(1)]
-        min_kernels = ['{0}{0}'.format(2), '{0}0{0}'.format(2),  '{0}{0}{0}'.format(2), '{0}{0}0{0}'.format(2), '{0}0{0}{0}'.format(2)]
-        weights = [1, 50, 500, 1000, 1000]
+        max_kernels = ['{0}{0}'.format(1), '{0}{0}{0}'.format(1), '{0}{0}0{0}'.format(1), '{0}0{0}{0}'.format(1)]
+        min_kernels = ['{0}{0}'.format(2), '{0}{0}{0}'.format(2), '{0}{0}0{0}'.format(2), '{0}0{0}{0}'.format(2)]
+        weights = [1, 100, 100, 100]
         to_str = lambda a: ''.join(a.astype(str))
 
         max_kernel_count = 0
