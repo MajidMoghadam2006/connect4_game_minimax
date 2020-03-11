@@ -127,7 +127,7 @@ class AIPlayer:
             beta = min(beta, v)
         return v
 
-    
+
     def get_alpha_beta_move(self, board):
         """
         Given the current state of the board, return the next move based on
@@ -166,7 +166,7 @@ class AIPlayer:
             d = 1
         '''Calculate action values using depth-limited heuristic-based minimax algorithm'''
         _, action_values = self.max_value(board, alpha=-float('inf'), beta=float('inf'), depth=d)
-        print(action_values)
+        
         '''Select best action from available actions based on action values returned from minimax'''
         best_action = avail_actions[0]
         best_value = -float('inf')
@@ -293,21 +293,22 @@ class AIPlayer:
     def kernel_score(self, board):
         """creating kernels that consider all vertical, horizontal, and diagonal win situations"""
         """adding zeros in between rewards the diagonal winning situations"""
-        max_kernels = ['{0}{0}'.format(1), '{0}{0}{0}'.format(1), '{0}{0}0{0}'.format(1), '{0}0{0}{0}'.format(1)]
-        min_kernels = ['{0}{0}'.format(2), '{0}{0}{0}'.format(2), '{0}{0}0{0}'.format(2), '{0}0{0}{0}'.format(2)]
-        weights = [1, 100, 100, 100]
+        good_kernels = ['11', '101', '111', '1101', '1011']
+        good_weights = [ 1,    1,     100,   100,    100]
+        bad_kernels = ['22', '21112', '2112', '202', '222', '2202', '2022']
+        bad_weights = [ 1,    1,       1,      100,   100,   100,    100]
         to_str = lambda a: ''.join(a.astype(str))
 
         max_kernel_count = 0
         min_kernel_count = 0
         for row in board:
             ''' Count the max player streaks'''
-            for k, w in zip(max_kernels, weights):
+            for k, w in zip(good_kernels, good_weights):
                 if k in to_str(row):
                     max_kernel_count += w
 
             ''' Count the min player streaks'''
-            for k, w in zip(min_kernels, weights):
+            for k, w in zip(bad_kernels, bad_weights):
                 if k in to_str(row):
                     min_kernel_count += w
 
