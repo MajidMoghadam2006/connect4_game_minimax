@@ -5,6 +5,7 @@ Player 1: max player
 Player 2: min player
 """
 
+
 def update_board(board, move, player_num):
     if 0 in board[:, move]:
         update_row = -1
@@ -58,14 +59,15 @@ def game_completed(board, player_num):
             check_vertical(board) or
             check_diagonal(board))
 
+
 def terminal_state(board):
     """ Check who won the game and return the utility """
     if game_completed(board, player_num=1):
-        return 1
+        return 10000
     elif game_completed(board, player_num=2):
-        return -1
+        return -10000
     else:
-        return 0
+        return None
 
 
 def available_actions(board):
@@ -76,41 +78,57 @@ def available_actions(board):
             valid_cols.append(col)
     return valid_cols
 
-def max_value(state, alpha, beta):
-    action_values = [-2 for _ in range(state.shape[1])]                 # -2 is correct?????
-    utility = terminal_state(state)
-    if utility != 0: return utility, action_values
-
-    v = -float('inf')
-    for a in available_actions(state):
-        state_ = update_board(state.copy(), a, player_num=1)   # next state
-        v = max(v, min_value(state_, alpha, beta))
-        action_values[a] = v
-        if v >= beta: return v, action_values
-        alpha = max(alpha, v)
-    return v, action_values
-
-def min_value(state, alpha, beta):
-    utility = terminal_state(state)
-    if utility != 0: return utility
-
-    v = +float('inf')
-    action_values = [-2 for _ in range(state.shape[1])]
-    for a in available_actions(state):
-        state_ = update_board(state.copy(), a, player_num=2)   # next state
-        mxv, _ = max_value(state_, alpha, beta)
-        v = min(v, mxv)
-        action_values[a] = v
-        if v <= alpha: return v
-        beta = min(beta, v)
-    return v
-
 
 class AIPlayer:
     def __init__(self, player_number):
         self.player_number = player_number
         self.type = 'ai'
         self.player_string = 'Player {}:ai'.format(player_number)
+
+    def max_value(self, state, alpha, beta, depth):
+        # print('------max-------')
+        # print(state, alpha, beta)
+        action_values = [0 for _ in range(state.shape[1])]  # -2 is correct?????
+        utility = terminal_state(state)
+        if utility is not None:  # Game has a winner
+            return utility, action_values
+        avail_actions = available_actions(state)
+        if len(avail_actions) == 0:  # game is tie
+            return 0, action_values
+
+        if depth == 0:
+            return self.evaluation_function(state), action_values
+
+        v = -float('inf')
+        for a in avail_actions:
+            state_ = update_board(state.copy(), a, player_num=1)  # next state
+            v = max(v, self.min_value(state_, alpha, beta, depth-1))
+            action_values[a] = v
+            if v >= beta: return v, action_values
+            alpha = max(alpha, v)
+        return v, action_values
+
+    def min_value(self, state, alpha, beta, depth):
+        # print('------min-------')
+        # print(state, alpha, beta)
+        utility = terminal_state(state)
+        if utility is not None:  # Game has a winner
+            return utility
+        avail_actions = available_actions(state)
+        if len(avail_actions) == 0:  # game is tie
+            return 0
+
+        if depth == 0:
+            return self.evaluation_function(state)
+
+        v = +float('inf')
+        for a in avail_actions:
+            state_ = update_board(state.copy(), a, player_num=2)  # next state
+            mxv, _ = self.max_value(state_, alpha, beta, depth-1)
+            v = min(v, mxv)
+            if v <= alpha: return v
+            beta = min(beta, v)
+        return v
 
     def get_alpha_beta_move(self, board):
         """
@@ -133,11 +151,19 @@ class AIPlayer:
         The 0 based index of the column that represents the next move
         """
         print(board)
-        _, action_values = max_value(board, -float('inf'), float('inf'))
+        _, action_values = self.max_value(board, alpha=-float('inf'), beta=float('inf'), depth=4)
+        avail_actions = available_actions(board)
         print(action_values)
+        print(avail_actions)
 
-        col_n = 1
-        return col_n
+        best_action = avail_actions[0]
+        best_value = -float('inf')
+        for i in avail_actions:
+            if action_values[i] > best_value:
+                best_action = i
+                best_value = action_values[i]
+        print(best_action)
+        return best_action
 
     def get_expectimax_move(self, board):
         """
@@ -163,14 +189,11 @@ class AIPlayer:
         col_n = 0
         return col_n
 
-
-
-
     def evaluation_function(self, board):
         """
-        Given the current stat of the board, return the scalar value that 
+        Given the current stat of the board, return the scalar value that
         represents the evaluation function for the current player
-       
+
         INPUTS:
         board - a numpy array containing the state of the board using the
                 following encoding:
@@ -184,9 +207,30 @@ class AIPlayer:
         RETURNS:
         The utility value for the current board
         """
-       
-       
-        return 0
+        r_score = self.row_score(board)
+        c_score = self.row_score(board.T)
+        return int((r_score + c_score) / 2)
+
+    def row_score(self, board):
+        max_kernels = ['{0}{0}'.format(1), '{0}{0}{0}'.format(1), '{0}{0}0{0}'.format(1), '{0}0{0}{0}'.format(1)]
+        min_kernels = ['{0}{0}'.format(2), '{0}{0}{0}'.format(2), '{0}{0}0{0}'.format(2), '{0}0{0}{0}'.format(2)]
+        weights = [1, 100, 100, 100]
+        to_str = lambda a: ''.join(a.astype(str))
+
+        max_kernel_count = 0
+        min_kernel_count = 0
+        for row in board:
+            ''' Count the max player streaks'''
+            for k, w in zip(max_kernels, weights):
+                if k in to_str(row):
+                    max_kernel_count += w
+
+            ''' Count the min player streaks'''
+            for k, w in zip(min_kernels, weights):
+                if k in to_str(row):
+                    min_kernel_count += w
+
+        return max_kernel_count - min_kernel_count
 
 
 class RandomPlayer:
@@ -215,7 +259,7 @@ class RandomPlayer:
         """
         valid_cols = []
         for col in range(board.shape[1]):
-            if 0 in board[:,col]:
+            if 0 in board[:, col]:
                 valid_cols.append(col)
 
         return np.random.choice(valid_cols)
@@ -257,4 +301,3 @@ class HumanPlayer:
             move = int(input('Enter your move: '))
 
         return move
-
