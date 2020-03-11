@@ -197,4 +197,5 @@ board = np.array([[0, 0, 0, 0],
 
 score = evaluation_function(board)
 v= [1,2,3,4]
-print()
+y = (4 & 4)*6
+print(y)

@@ -5,8 +5,8 @@ Player 1: max player
 Player 2: min player
 """
 
-
 def update_board(board, move, player_num):
+    """update the game board to move to more depth in the ge tree"""
     if 0 in board[:, move]:
         update_row = -1
         for row in range(1, board.shape[0]):
@@ -24,8 +24,8 @@ def update_board(board, move, player_num):
         raise Exception(err)
     return board
 
-
 def game_completed(board, player_num):
+    """check if the player has won the game"""
     player_win_str = '{0}{0}{0}{0}'.format(player_num)
     to_str = lambda a: ''.join(a.astype(str))
 
@@ -59,7 +59,6 @@ def game_completed(board, player_num):
             check_vertical(board) or
             check_diagonal(board))
 
-
 def terminal_state(board):
     """ Check who won the game and return the utility """
     if game_completed(board, player_num=1):
@@ -86,8 +85,7 @@ class AIPlayer:
         self.player_string = 'Player {}:ai'.format(player_number)
 
     def max_value(self, state, alpha, beta, depth):
-        # print('------max-------')
-        # print(state, alpha, beta)
+        """max value calculation for alpha-beta Minimax algorithm"""
         action_values = [0 for _ in range(state.shape[1])]  # -2 is correct?????
         utility = terminal_state(state)
         if utility is not None:  # Game has a winner
@@ -109,8 +107,7 @@ class AIPlayer:
         return v, action_values
 
     def min_value(self, state, alpha, beta, depth):
-        # print('------min-------')
-        # print(state, alpha, beta)
+        """min value calculation for alpha-beta Minimax algorithm"""
         utility = terminal_state(state)
         if utility is not None:  # Game has a winner
             return utility
@@ -150,20 +147,75 @@ class AIPlayer:
         RETURNS:
         The 0 based index of the column that represents the next move
         """
-        print(board)
-        _, action_values = self.max_value(board, alpha=-float('inf'), beta=float('inf'), depth=4)
-        avail_actions = available_actions(board)
-        print(action_values)
-        print(avail_actions)
 
+        avail_actions = available_actions(board)
+        # heuristic depth value -  a logarithmic function of # available actions
+        n = len(avail_actions)
+        if n == 6:
+            d = 4
+        elif n == 5:
+            d = 5
+        elif n == 4:
+            d = 6
+        elif n == 3:
+            d = 8
+        elif n == 2:
+            d = 13
+        else:
+            d = 1
+        '''Calculate action values using depth-limited heuristic-based minimax algorithm'''
+        _, action_values = self.max_value(board, alpha=-float('inf'), beta=float('inf'), depth=d)
+
+        '''Select best action from available actions based on action values returned from minimax'''
         best_action = avail_actions[0]
         best_value = -float('inf')
         for i in avail_actions:
             if action_values[i] > best_value:
                 best_action = i
                 best_value = action_values[i]
-        print(best_action)
         return best_action
+
+    '''max value calculation for Expectimax algorithm'''
+    def max_value_exp(self, state, depth):
+
+        action_values = [0 for _ in range(state.shape[1])]
+        utility = terminal_state(state)
+        if utility is not None:  # Game has a winner
+            return utility, action_values
+        avail_actions = available_actions(state)
+        if len(avail_actions) == 0:  # game is tie
+            return 0.0, action_values
+
+        if depth == 0:
+            return self.evaluation_function(state), action_values
+
+        v = -float('inf')
+        for a in avail_actions:
+            state_ = update_board(state.copy(), a, player_num=1)  # next state
+            v = max(v, self.exp_value(state_, depth-1))
+            action_values[a] = v
+        return v, action_values
+
+    '''expectation value calculation for Expectimax algorithm'''
+    def exp_value(self, state, depth):
+
+        utility = terminal_state(state)
+        if utility is not None:  # Game has a winner
+            return utility
+        avail_actions = available_actions(state)
+        if len(avail_actions) == 0:  # game is tie
+            return 0.0
+
+        if depth == 0:
+            return self.evaluation_function(state)
+
+        v = 0.0
+        for a in avail_actions:
+            state_ = update_board(state.copy(), a, player_num=1)  # next state
+            p = 1 / len(available_actions(state_))
+            mxv, _ = self.max_value_exp(state_, depth - 1)
+            v += p*max(v, mxv)
+        return v
 
     def get_expectimax_move(self, board):
         """
@@ -186,8 +238,33 @@ class AIPlayer:
         RETURNS:
         The 0 based index of the column that represents the next move
         """
-        col_n = 0
-        return col_n
+
+        avail_actions = available_actions(board)
+        # heuristic depth value -  a logarithmic function of # available actions
+        n = len(avail_actions)
+        if n == 6:
+            d = 4
+        elif n == 5:
+            d = 5
+        elif n == 4:
+            d = 6
+        elif n == 3:
+            d = 8
+        elif n == 2:
+            d = 13
+        else:
+            d = 1
+        '''Calculate action values using depth-limited heuristic-based minimax algorithm'''
+        _, action_values = self.max_value_exp(board, depth=d)
+
+        '''Select best action from available actions based on action values returned from minimax'''
+        best_action = avail_actions[0]
+        best_value = -float('inf')
+        for i in avail_actions:
+            if action_values[i] > best_value:
+                best_action = i
+                best_value = action_values[i]
+        return best_action
 
     def evaluation_function(self, board):
         """
@@ -207,14 +284,17 @@ class AIPlayer:
         RETURNS:
         The utility value for the current board
         """
-        r_score = self.row_score(board)
-        c_score = self.row_score(board.T)
+        """kernel_score rewards all vertical, horizontal, and diagonal winning situations"""
+        r_score = self.kernel_score(board)
+        c_score = self.kernel_score(board.T)
         return int((r_score + c_score) / 2)
 
-    def row_score(self, board):
-        max_kernels = ['{0}{0}'.format(1), '{0}{0}{0}'.format(1), '{0}{0}0{0}'.format(1), '{0}0{0}{0}'.format(1)]
-        min_kernels = ['{0}{0}'.format(2), '{0}{0}{0}'.format(2), '{0}{0}0{0}'.format(2), '{0}0{0}{0}'.format(2)]
-        weights = [1, 100, 100, 100]
+    def kernel_score(self, board):
+        """creating kernels that consider all vertical, horizontal, and diagonal win situations"""
+        """adding zeros in between rewards the diagonal winning situations"""
+        max_kernels = ['{0}{0}'.format(1), '{0}0{0}'.format(1),  '{0}{0}{0}'.format(1), '{0}{0}0{0}'.format(1), '{0}0{0}{0}'.format(1)]
+        min_kernels = ['{0}{0}'.format(2), '{0}0{0}'.format(2),  '{0}{0}{0}'.format(2), '{0}{0}0{0}'.format(2), '{0}0{0}{0}'.format(2)]
+        weights = [1, 50, 500, 1000, 1000]
         to_str = lambda a: ''.join(a.astype(str))
 
         max_kernel_count = 0
